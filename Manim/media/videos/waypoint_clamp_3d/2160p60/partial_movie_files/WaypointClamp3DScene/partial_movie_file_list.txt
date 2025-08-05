@@ -1,0 +1,13 @@
+# This file is used internally by FFMPEG.
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/2160p60/partial_movie_files/WaypointClamp3DScene/1238949137_30065728_1128755781.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/2160p60/partial_movie_files/WaypointClamp3DScene/2995250663_2272310860_2415435178.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/2160p60/partial_movie_files/WaypointClamp3DScene/2995250663_2403476083_245996357.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/2160p60/partial_movie_files/WaypointClamp3DScene/2995250663_1987403165_2562476647.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/2160p60/partial_movie_files/WaypointClamp3DScene/2995250663_2021368435_2597063553.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/2160p60/partial_movie_files/WaypointClamp3DScene/2995250663_548731573_3828110899.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/2160p60/partial_movie_files/WaypointClamp3DScene/2995250663_2939322080_918431102.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/2160p60/partial_movie_files/WaypointClamp3DScene/2995250663_548731573_4151285923.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/2160p60/partial_movie_files/WaypointClamp3DScene/2995250663_744422463_2613944464.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/2160p60/partial_movie_files/WaypointClamp3DScene/2995250663_548731573_163206634.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/2160p60/partial_movie_files/WaypointClamp3DScene/2946098571_3441406230_2424720449.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/2160p60/partial_movie_files/WaypointClamp3DScene/408485000_2230675760_2923052856.mp4'
