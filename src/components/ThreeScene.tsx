@@ -1,13 +1,19 @@
+// src/components/ThreeScene.tsx
 "use client";
 
-import React, { useRef, useState, useMemo } from "react";
+import React, { useRef, useState, useMemo, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Mesh,BufferGeometry,Float32BufferAttribute } from "three";
+import { OrbitControls } from "@react-three/drei";
+import {
+  Vector3,
+  Mesh,
+  BufferGeometry,
+  Float32BufferAttribute,
+} from "three";
 
 import CameraController from "./CameraController";
 import IntroOverlay from "./IntroOverlay";
 import WaypointIndicator from "./WaypointIndicator";
-
 import {
   worldToScreenPosition,
   isPositionOffScreen,
@@ -28,7 +34,6 @@ function Scene({ onIndicatorUpdate }: { onIndicatorUpdate: (s: IndicatorState) =
   const wpRef = useRef<Mesh>(null);
   const { camera, gl } = useThree();
 
-  // starfield once
   const starsGeo = useMemo(() => {
     const N = 5000;
     const arr = new Float32Array(N * 3);
@@ -45,12 +50,10 @@ function Scene({ onIndicatorUpdate }: { onIndicatorUpdate: (s: IndicatorState) =
   useFrame(() => {
     if (!wpRef.current) return;
 
-    // project waypoint
     const worldPos = wpRef.current.position.clone();
     const W = gl.domElement.clientWidth;
     const H = gl.domElement.clientHeight;
-    const cx = W / 2;
-    const cy = H / 2;
+    const cx = W / 2, cy = H / 2;
     const scr = worldToScreenPosition(
       worldPos,
       camera.matrixWorldInverse,
@@ -58,13 +61,11 @@ function Scene({ onIndicatorUpdate }: { onIndicatorUpdate: (s: IndicatorState) =
       W, H
     );
 
-    // on-screen?
     if (!isPositionOffScreen(scr, W, H)) {
       onIndicatorUpdate({ pos: { x: scr.x, y: scr.y }, rotation: 0, off: false });
       return;
     }
 
-    // clamp to padded border
     const dx = scr.x - cx;
     const dy = scr.y - cy;
     const angle = Math.atan2(dy, dx);
@@ -104,6 +105,23 @@ export default function ThreeScene() {
     off: false,
   });
   const [showIntro, setShowIntro] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile on mount
+  useEffect(() => {
+    setIsMobile(/Mobi|Android/i.test(navigator.userAgent));
+  }, []);
+
+  // Listen for ESC to toggle overlay
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowIntro((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div
@@ -124,15 +142,29 @@ export default function ThreeScene() {
         }}
         camera={{ position: [0, 1, 5], fov: 75, near: 0.1, far: 500 }}
       >
-        <CameraController lookSpeed={1.5} moveSpeed={10} />
+        {/* Only enable controls when overlay is hidden */}
+        {!showIntro && (
+          isMobile ? (
+            <OrbitControls
+              makeDefault
+              enablePan={false}
+              enableZoom={false}
+              rotateSpeed={0.4}
+            />
+          ) : (
+            <CameraController lookSpeed={1.5} moveSpeed={10} />
+          )
+        )}
         <Scene onIndicatorUpdate={setIndicator} />
       </Canvas>
 
-      {indicator.off && (
+      {/* Arrow overlay */}
+      {indicator.off && !showIntro && (
         <WaypointIndicator position={indicator.pos} rotation={indicator.rotation} />
       )}
 
-      {showIntro && <IntroOverlay onStart={() => setShowIntro(false)} />}
+      {/* Intro overlay */}
+      {showIntro && <IntroOverlay onStart={() => setShowIntro(false)} isMobile={isMobile} />}
     </div>
   );
 }

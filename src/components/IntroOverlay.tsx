@@ -4,6 +4,7 @@ import React from "react";
 
 interface IntroOverlayProps {
   onStart: () => void;
+  isMobile: boolean;
 }
 
 const overlayStyle: React.CSSProperties = {
@@ -29,7 +30,7 @@ const titleStyle: React.CSSProperties = {
 };
 
 const listStyle: React.CSSProperties = {
-  listStyleType: "none",   // remove the dots
+  listStyleType: "none",
   padding: 0,
   marginBottom: "24px",
   fontSize: "18px",
@@ -46,20 +47,30 @@ const buttonStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
-export default function IntroOverlay({ onStart }: IntroOverlayProps) {
+export default function IntroOverlay({ onStart, isMobile }: IntroOverlayProps) {
   return (
     <div style={overlayStyle}>
       <h1 style={titleStyle}>Controls</h1>
       <ul style={listStyle}>
-        <li>
-          <strong>W / A / S / D</strong> – Move forward / left / back / right
-        </li>
-        <li>
-          <strong>Mouse Drag</strong> – Look around
-        </li>
-        <li>
-          <strong>Click Canvas</strong> – Focus controls
-        </li>
+        {isMobile ? (
+          <>
+            <li>
+              <strong>Touch & Drag</strong> – Look around
+            </li>
+          </>
+        ) : (
+          <>
+            <li>
+              <strong>W / A / S / D</strong> – Move fwd / left / back / right
+            </li>
+            <li>
+              <strong>Mouse Drag</strong> – Look around
+            </li>
+            <li>
+              <strong>Click Canvas</strong> – Focus controls
+            </li>
+          </>
+        )}
       </ul>
       <button style={buttonStyle} onClick={onStart}>
         Start
