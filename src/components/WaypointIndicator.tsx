@@ -8,7 +8,7 @@ interface Props {
 }
 
 export default function WaypointIndicator({ position, rotation }: Props) {
-  const size = 60; // arrow size in px
+  const size = 60;  // matches ARROW_SIZE
   return (
     <div
       style={{

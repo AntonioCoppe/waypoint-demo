@@ -1,4 +1,3 @@
-// src/components/ThreeScene.tsx
 "use client";
 
 import React, { useRef, useState, useMemo } from "react";
@@ -18,7 +17,9 @@ import {
 } from "../utils/math";
 import WaypointIndicator from "./WaypointIndicator";
 
-const PAD = 20; // padding in px
+const ARROW_SIZE = 60; // px
+const MARGIN = 20;     // px inside the edge
+const PAD   = ARROW_SIZE / 2 + MARGIN; // inset from each side
 
 type IndicatorState = {
   pos: { x: number; y: number };
@@ -26,12 +27,11 @@ type IndicatorState = {
   off: boolean;
 };
 
-function Scene({ onUpdate }: { onUpdate: (s: IndicatorState) => void }) {
+function Scene({ onUpdate }: { onUpdate(s: IndicatorState): void }) {
   const wpRef = useRef<Mesh>(null);
   const { camera, gl } = useThree();
 
-  // build stars once
-  const starsGeo = useMemo(() => {
+  const stars = useMemo(() => {
     const N = 5000;
     const arr = new Float32Array(N * 3);
     for (let i = 0; i < N; i++) {
@@ -47,7 +47,7 @@ function Scene({ onUpdate }: { onUpdate: (s: IndicatorState) => void }) {
   useFrame(() => {
     if (!wpRef.current) return;
 
-    // Project world→screen
+    // 1) Project
     const worldPos = wpRef.current.position.clone();
     const W = gl.domElement.clientWidth;
     const H = gl.domElement.clientHeight;
@@ -57,44 +57,70 @@ function Scene({ onUpdate }: { onUpdate: (s: IndicatorState) => void }) {
       worldPos,
       camera.matrixWorldInverse,
       camera.projectionMatrix,
-      W,
-      H
+      W, H
     );
 
-    // On‐screen?
+    // 2) On-screen?
     if (!isPositionOffScreen(scr, W, H)) {
       onUpdate({ pos: { x: scr.x, y: scr.y }, rotation: 0, off: false });
       return;
     }
 
-    // Compute 2D ray from center → scr
+    // 3) Ray from center → scr
     const dx = scr.x - cx;
     const dy = scr.y - cy;
-
-    // New angle so up=−90°, down=+90°
     const angle = Math.atan2(dy, dx);
 
-    // Find intersection with full-screen rect
-    const tX = dx !== 0 ? cx / Math.abs(dx) : Infinity;
-    const tY = dy !== 0 ? cy / Math.abs(dy) : Infinity;
-    const t = Math.min(tX, tY);
+    // 4) Candidate intersections with the padded rectangle
+    type Cand = { t: number; x: number; y: number };
+    const cands: Cand[] = [];
 
-    let arrowX = cx + dx * t;
-    let arrowY = cy + dy * t;
+    // Vertical edges
+    if (dx !== 0) {
+      const tRight = ((W - PAD) - cx) / dx;
+      if (tRight > 0) {
+        const y = cy + dy * tRight;
+        if (y >= PAD && y <= H - PAD) cands.push({ t: tRight, x: W - PAD, y });
+      }
+      const tLeft = (PAD - cx) / dx;
+      if (tLeft > 0) {
+        const y = cy + dy * tLeft;
+        if (y >= PAD && y <= H - PAD) cands.push({ t: tLeft, x: PAD, y });
+      }
+    }
 
-    // Clamp into padded box
-    arrowX = Math.min(Math.max(arrowX, PAD), W - PAD);
-    arrowY = Math.min(Math.max(arrowY, PAD), H - PAD);
+    // Horizontal edges
+    if (dy !== 0) {
+      const tBot = ((H - PAD) - cy) / dy;
+      if (tBot > 0) {
+        const x = cx + dx * tBot;
+        if (x >= PAD && x <= W - PAD) cands.push({ t: tBot, x, y: H - PAD });
+      }
+      const tTop = (PAD - cy) / dy;
+      if (tTop > 0) {
+        const x = cx + dx * tTop;
+        if (x >= PAD && x <= W - PAD) cands.push({ t: tTop, x, y: PAD });
+      }
+    }
 
-    onUpdate({ pos: { x: arrowX, y: arrowY }, rotation: angle, off: true });
+    // 5) Pick the nearest intersection
+    if (cands.length === 0) {
+      // fallback to center
+      onUpdate({ pos: { x: cx, y: cy }, rotation: angle, off: true });
+    } else {
+      const best = cands.reduce((a, b) => (a.t < b.t ? a : b));
+      onUpdate({ pos: { x: best.x, y: best.y }, rotation: angle, off: true });
+    }
   });
 
   return (
     <>
-      <points geometry={starsGeo}>
+      {/* starfield */}
+      <points geometry={stars}>
         <pointsMaterial attach="material" size={0.5} color="white" />
       </points>
 
+      {/* waypoint */}
       <mesh ref={wpRef} position={[0, 0, -10]}>
         <sphereGeometry args={[0.3, 16, 16]} />
         <meshStandardMaterial color="orange" />
@@ -107,7 +133,7 @@ function Scene({ onUpdate }: { onUpdate: (s: IndicatorState) => void }) {
 }
 
 export default function ThreeScene() {
-  const [indicator, setIndicator] = useState<IndicatorState>({
+  const [ind, setInd] = useState<IndicatorState>({
     pos: { x: 0, y: 0 },
     rotation: 0,
     off: false,
@@ -133,14 +159,11 @@ export default function ThreeScene() {
         camera={{ position: [0, 1, 5], fov: 75, near: 0.1, far: 500 }}
       >
         <FlyControls movementSpeed={10} rollSpeed={Math.PI / 24} dragToLook />
-        <Scene onUpdate={setIndicator} />
+        <Scene onUpdate={setInd} />
       </Canvas>
 
-      {indicator.off && (
-        <WaypointIndicator
-          position={indicator.pos}
-          rotation={indicator.rotation}
-        />
+      {ind.off && (
+        <WaypointIndicator position={ind.pos} rotation={ind.rotation} />
       )}
     </div>
   );
