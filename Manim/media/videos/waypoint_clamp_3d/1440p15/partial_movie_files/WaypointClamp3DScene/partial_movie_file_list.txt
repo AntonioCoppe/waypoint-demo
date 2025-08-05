@@ -1,0 +1,13 @@
+# This file is used internally by FFMPEG.
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/1440p15/partial_movie_files/WaypointClamp3DScene/136439731_30065728_3443155277.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/1440p15/partial_movie_files/WaypointClamp3DScene/1225635715_2272310860_1181845071.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/1440p15/partial_movie_files/WaypointClamp3DScene/1225635715_2403476083_4025200716.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/1440p15/partial_movie_files/WaypointClamp3DScene/1225635715_1987403165_1099108590.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/1440p15/partial_movie_files/WaypointClamp3DScene/1225635715_4025080593_756745151.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/1440p15/partial_movie_files/WaypointClamp3DScene/1225635715_548731573_4079941683.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/1440p15/partial_movie_files/WaypointClamp3DScene/1225635715_2939322080_4037475248.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/1440p15/partial_movie_files/WaypointClamp3DScene/1225635715_548731573_3356652485.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/1440p15/partial_movie_files/WaypointClamp3DScene/1225635715_744422463_2639338328.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/1440p15/partial_movie_files/WaypointClamp3DScene/1225635715_2230675760_1311150373.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/1440p15/partial_movie_files/WaypointClamp3DScene/1790032780_3161101985_3460287217.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/1440p15/partial_movie_files/WaypointClamp3DScene/2150024689_4073845205_3672017094.mp4'

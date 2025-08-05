@@ -1,0 +1,13 @@
+# This file is used internally by FFMPEG.
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/480p15/partial_movie_files/WaypointClamp3DScene/238433677_30065728_895161572.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/480p15/partial_movie_files/WaypointClamp3DScene/432527821_2272310860_1657929026.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/480p15/partial_movie_files/WaypointClamp3DScene/432527821_2403476083_923021557.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/480p15/partial_movie_files/WaypointClamp3DScene/432527821_1987403165_2457936871.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/480p15/partial_movie_files/WaypointClamp3DScene/432527821_2021368435_3899020305.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/480p15/partial_movie_files/WaypointClamp3DScene/432527821_548731573_3523176069.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/480p15/partial_movie_files/WaypointClamp3DScene/432527821_2939322080_1930486390.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/480p15/partial_movie_files/WaypointClamp3DScene/432527821_548731573_3387244310.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/480p15/partial_movie_files/WaypointClamp3DScene/432527821_744422463_4237948188.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/480p15/partial_movie_files/WaypointClamp3DScene/432527821_2230675760_2683658998.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/480p15/partial_movie_files/WaypointClamp3DScene/632326084_3161101985_2265029002.mp4'
+file 'file:/Users/antoniocoppe/waypoint-demo/Manim/media/videos/waypoint_clamp_3d/480p15/partial_movie_files/WaypointClamp3DScene/3623120736_4073845205_2463098955.mp4'
