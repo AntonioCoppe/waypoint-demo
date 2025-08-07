@@ -15,7 +15,9 @@ export default function CameraController({
 }: CameraControllerProps) {
   const { camera, size } = useThree();
   const pointer = useRef({ x: size.width / 2, y: size.height / 2 });
-  const keys = useRef({ w: false, a: false, s: false, d: false });
+  const keys = useRef({ w: false, a: false, s: false, d: false, shift: false, space: false, ctrl: false, q: false, e: false });
+  const velocityRef = useRef(new Vector3(0, 0, 0));
+  const targetRotRef = useRef({ x: camera.rotation.x, y: camera.rotation.y });
 
   // Track mouse
   useEffect(() => {
@@ -40,10 +42,14 @@ export default function CameraController({
     const down = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
       if (k in keys.current) keys.current[k as keyof typeof keys.current] = true;
+      if (e.code === "Space") keys.current.space = true;
+      if (e.ctrlKey || e.key === "Control" || e.code === "ControlLeft" || e.code === "ControlRight") keys.current.ctrl = true;
     };
     const up = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
       if (k in keys.current) keys.current[k as keyof typeof keys.current] = false;
+      if (e.code === "Space") keys.current.space = false;
+      if (!e.ctrlKey && (e.key === "Control" || e.code === "ControlLeft" || e.code === "ControlRight")) keys.current.ctrl = false;
     };
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
@@ -59,32 +65,46 @@ export default function CameraController({
     const dx = (pointer.current.x - cx) / cx;
     const dy = (pointer.current.y - cy) / cy;
 
-    // Look only when pointer is off-center
-    if (Math.abs(dx) > 0.01) {
-      camera.rotation.y -= dx * lookSpeed * delta;
-    }
-    if (Math.abs(dy) > 0.01) {
-      camera.rotation.x -= dy * lookSpeed * delta;
-      camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
-    }
+    // Smooth look (lerp to target rotation)
+    const targetY = targetRotRef.current.y - dx * lookSpeed * delta;
+    const targetX = targetRotRef.current.x - dy * lookSpeed * delta;
+    targetRotRef.current.y = targetY;
+    targetRotRef.current.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, targetX));
+    camera.rotation.y += (targetRotRef.current.y - camera.rotation.y) * 0.2;
+    camera.rotation.x += (targetRotRef.current.x - camera.rotation.x) * 0.2;
 
-    // Movement
-    const dir = new Vector3();
-    camera.getWorldDirection(dir);
-    dir.y = 0;
-    dir.normalize();
-    const right = new Vector3().crossVectors(dir, camera.up).normalize();
+    // Movement with acceleration/drag and boost
+    const forward = new Vector3();
+    camera.getWorldDirection(forward);
+    // allow vertical flight (keep full forward including y)
+    forward.normalize();
+    const right = new Vector3().crossVectors(forward, new Vector3(0, 1, 0)).normalize();
 
-    const velocity = new Vector3();
-    if (keys.current.w) velocity.add(dir);
-    if (keys.current.s) velocity.sub(dir);
-    if (keys.current.a) velocity.sub(right);
-    if (keys.current.d) velocity.add(right);
+    const input = new Vector3();
+    if (keys.current.w) input.add(forward);
+    if (keys.current.s) input.sub(forward);
+    if (keys.current.a) input.sub(right);
+    if (keys.current.d) input.add(right);
 
-    if (velocity.lengthSq() > 0) {
-      velocity.normalize().multiplyScalar(moveSpeed * delta);
-      camera.position.add(velocity);
-    }
+    // vertical controls
+    if (keys.current.space) input.y += 1;
+    if (keys.current.ctrl) input.y -= 1;
+    if (input.lengthSq() > 0) input.normalize();
+    const boost = keys.current.shift ? 2.0 : 1.0;
+    const accel = moveSpeed * 2.5 * boost;
+    const drag = 4.0; // per second
+
+    // integrate velocity
+    const v = velocityRef.current;
+    v.addScaledVector(input, accel * delta);
+    // apply drag
+    const dragFactor = Math.max(0, 1 - drag * delta);
+    v.multiplyScalar(dragFactor);
+
+    // clamp very small velocities
+    if (v.lengthSq() < 1e-6) v.set(0, 0, 0);
+
+    camera.position.addScaledVector(v, delta);
   });
 
   return null;

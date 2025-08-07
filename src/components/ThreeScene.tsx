@@ -4,16 +4,13 @@
 import React, { useRef, useState, useMemo, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
-import {
-  Vector3,
-  Mesh,
-  BufferGeometry,
-  Float32BufferAttribute,
-} from "three";
+import { Vector3, BufferGeometry, Float32BufferAttribute } from "three";
 
 import CameraController from "./CameraController";
 import IntroOverlay from "./IntroOverlay";
 import WaypointIndicator from "./WaypointIndicator";
+import Ring from "./Ring";
+import PlayerShip from "./PlayerShip";
 import {
   worldToScreenPosition,
   isPositionOffScreen,
@@ -25,13 +22,54 @@ const MARGIN = 20;     // px inside the edge
 const PAD = ARROW_SIZE / 2 + MARGIN; // inset from each side
 
 type IndicatorState = {
+  id: string;
   pos: { x: number; y: number };
   rotation: number;
   off: boolean;
+  color: string;
+  label?: string;
 };
 
-function Scene({ onIndicatorUpdate }: { onIndicatorUpdate: (s: IndicatorState) => void }) {
-  const wpRef = useRef<Mesh>(null);
+type RingData = {
+  id: string;
+  position: Vector3;
+  radius: number;
+};
+
+function createRng(seed: number) {
+  let s = seed >>> 0;
+  return function rand() {
+    s ^= s << 13; s ^= s >>> 17; s ^= s << 5;
+    return (s >>> 0) / 0xffffffff;
+  };
+}
+
+function generateRings(seed: number, count: number): RingData[] {
+  const rand = createRng(seed);
+  const rings: RingData[] = [];
+  let z = -20;
+  for (let i = 0; i < count; i++) {
+    z -= 18 + rand() * 8;
+    const x = (rand() - 0.5) * 20 + Math.sin(i * 0.6 + seed) * 3;
+    const y = (rand() - 0.5) * 10 + Math.cos(i * 0.4 + seed * 0.5) * 2;
+    const pos = new Vector3(x, y, z);
+    const radius = 2 + rand() * 1.2;
+    rings.push({ id: `ring-${i}`, position: pos, radius });
+  }
+  return rings;
+}
+
+function Scene({
+  rings,
+  currentIndex,
+  setPassed,
+  onIndicators,
+}: {
+  rings: RingData[];
+  currentIndex: number;
+  setPassed: (idx: number) => void;
+  onIndicators: (s: IndicatorState[]) => void;
+}) {
   const { camera, gl } = useThree();
 
   const starsGeo = useMemo(() => {
@@ -48,37 +86,51 @@ function Scene({ onIndicatorUpdate }: { onIndicatorUpdate: (s: IndicatorState) =
   }, []);
 
   useFrame(() => {
-    if (!wpRef.current) return;
-
-    const worldPos = wpRef.current.position.clone();
     const W = gl.domElement.clientWidth;
     const H = gl.domElement.clientHeight;
     const cx = W / 2, cy = H / 2;
-    const scr = worldToScreenPosition(
-      worldPos,
-      camera.matrixWorldInverse,
-      camera.projectionMatrix,
-      W, H
-    );
 
-    if (!isPositionOffScreen(scr, W, H)) {
-      onIndicatorUpdate({ pos: { x: scr.x, y: scr.y }, rotation: 0, off: false });
-      return;
+    // detect passing current ring
+    const current = rings[currentIndex];
+    if (current) {
+      const dist = camera.position.distanceTo(current.position);
+      if (dist < current.radius * 0.9) {
+        setPassed(currentIndex);
+      }
     }
 
-    const dx = scr.x - cx;
-    const dy = scr.y - cy;
-    const angle = Math.atan2(dy, dx);
+    // indicator for the next ring only, and only if off-screen
+    const next: IndicatorState[] = [];
+    if (current) {
+      const scr = worldToScreenPosition(
+        current.position,
+        camera.matrixWorldInverse,
+        camera.projectionMatrix,
+        W,
+        H
+      );
+      const distWorld = camera.position.distanceTo(current.position);
+      const color = "#22d3ee";
+      const label = `#${currentIndex + 1} ${Math.round(distWorld)}m`;
+      if (isPositionOffScreen(scr, W, H)) {
+        const dx = scr.x - cx;
+        const dy = scr.y - cy;
+        const angle = Math.atan2(dy, dx);
+        const scaleX = dx !== 0 ? (cx - PAD) / Math.abs(dx) : Infinity;
+        const scaleY = dy !== 0 ? (cy - PAD) / Math.abs(dy) : Infinity;
+        const s = Math.min(scaleX, scaleY);
+        next.push({
+          id: current.id,
+          pos: { x: cx + dx * s, y: cy + dy * s },
+          rotation: angle,
+          off: true,
+          color,
+          label,
+        });
+      }
+    }
 
-    const scaleX = dx !== 0 ? (cx - PAD) / Math.abs(dx) : Infinity;
-    const scaleY = dy !== 0 ? (cy - PAD) / Math.abs(dy) : Infinity;
-    const s = Math.min(scaleX, scaleY);
-
-    onIndicatorUpdate({
-      pos: { x: cx + dx * s, y: cy + dy * s },
-      rotation: angle,
-      off: true,
-    });
+    onIndicators(next);
   });
 
   return (
@@ -87,10 +139,16 @@ function Scene({ onIndicatorUpdate }: { onIndicatorUpdate: (s: IndicatorState) =
         <pointsMaterial attach="material" size={0.5} color="white" />
       </points>
 
-      <mesh ref={wpRef} position={[0, 0, -10]}>
-        <sphereGeometry args={[0.3, 16, 16]} />
-        <meshStandardMaterial color="orange" />
-      </mesh>
+      {rings.map((r, idx) => (
+        <Ring
+          key={r.id}
+          position={[r.position.x, r.position.y, r.position.z]}
+          radius={r.radius}
+          thickness={0.12}
+          color={idx === currentIndex ? "#22d3ee" : "#334155"}
+          opacity={idx === currentIndex ? 0.95 : 0.35}
+        />
+      ))}
 
       <ambientLight intensity={0.2} />
       <directionalLight position={[5, 5, 5]} intensity={1} />
@@ -99,11 +157,37 @@ function Scene({ onIndicatorUpdate }: { onIndicatorUpdate: (s: IndicatorState) =
 }
 
 export default function ThreeScene() {
-  const [indicator, setIndicator] = useState<IndicatorState>({
-    pos: { x: 0, y: 0 },
-    rotation: 0,
-    off: false,
+  // Seed and ring sequence params from URL
+  const [mounted, setMounted] = useState(false);
+  const [seed, setSeed] = useState<number>(0);
+  const [ringCount] = useState<number>(() => {
+    if (typeof window === "undefined") return 12;
+    const p = new URLSearchParams(window.location.search);
+    const n = p.get("n");
+    return n ? Math.max(3, Math.min(50, parseInt(n, 10))) : 12;
   });
+  useEffect(() => {
+    // avoid SSR hydration mismatch by seeding after mount
+    setSeed(() => {
+      const p = new URLSearchParams(window.location.search);
+      const s = p.get("seed");
+      return s ? parseInt(s, 10) : Math.floor(Math.random() * 1e9);
+    });
+    setMounted(true);
+  }, []);
+  const rings = useMemo(() => generateRings(seed, ringCount), [seed, ringCount]);
+
+  // Game progression
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [startMs, setStartMs] = useState<number | null>(null);
+  const [finishMs, setFinishMs] = useState<number | null>(null);
+  // const [splits, setSplits] = useState<number[]>([]);
+
+  // Indicators and smoothing
+  const [indicators, setIndicators] = useState<IndicatorState[]>([]);
+  const prevIndicatorsRef = useRef<Map<string, IndicatorState>>(new Map());
+  const [smoothedIndicators, setSmoothedIndicators] = useState<IndicatorState[]>([]);
+
   const [showIntro, setShowIntro] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -111,6 +195,87 @@ export default function ThreeScene() {
   useEffect(() => {
     setIsMobile(/Mobi|Android/i.test(navigator.userAgent));
   }, []);
+
+  // Keep seed and ring count in URL
+  useEffect(() => {
+    if (!mounted) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("seed", String(seed));
+    url.searchParams.set("n", String(ringCount));
+    window.history.replaceState({}, "", url.toString());
+  }, [mounted, seed, ringCount]);
+
+  // Start timer when game begins
+  useEffect(() => {
+    if (!showIntro && startMs === null) {
+      setStartMs(performance.now());
+    }
+  }, [showIntro, startMs]);
+
+  // Smooth indicators toward targets
+  useEffect(() => {
+    const prev = prevIndicatorsRef.current;
+    const now = new Map<string, IndicatorState>();
+    const alpha = 0.25;
+    const smoothed = indicators.map((ind) => {
+      const p = prev.get(ind.id);
+      if (!p) {
+        now.set(ind.id, ind);
+        return ind;
+      }
+      const pos = {
+        x: p.pos.x + (ind.pos.x - p.pos.x) * alpha,
+        y: p.pos.y + (ind.pos.y - p.pos.y) * alpha,
+      };
+      const rot = p.rotation + (ind.rotation - p.rotation) * alpha;
+      const out: IndicatorState = { ...ind, pos, rotation: rot };
+      now.set(ind.id, out);
+      return out;
+    });
+    prevIndicatorsRef.current = now;
+    setSmoothedIndicators(smoothed);
+  }, [indicators]);
+
+  // Handle passing a ring
+  const handlePassed = (idx: number) => {
+    if (idx !== currentIndex) return;
+    const now = performance.now();
+    setCurrentIndex((v) => v + 1);
+    // setSplits((arr) => [...arr, now]);
+    if (idx + 1 >= rings.length) {
+      setFinishMs(now);
+      if (startMs !== null) {
+        const total = now - startMs;
+        try {
+          const key = `leaderboard:${seed}:${ringCount}`;
+          const raw = localStorage.getItem(key);
+          const list: number[] = raw ? JSON.parse(raw) : [];
+          list.push(total);
+          list.sort((a, b) => a - b);
+          localStorage.setItem(key, JSON.stringify(list.slice(0, 10)));
+        } catch {}
+      }
+    }
+  };
+
+  const leaderboard = useMemo(() => {
+    void finishMs; // ensure dependency is considered used for recomputation after finish
+    if (typeof window === "undefined") return [] as number[];
+    try {
+      const key = `leaderboard:${seed}:${ringCount}`;
+      const raw = localStorage.getItem(key);
+      return raw ? (JSON.parse(raw) as number[]) : [];
+    } catch {
+      return [] as number[];
+    }
+  }, [seed, ringCount, finishMs]);
+
+  const resetRun = () => {
+    setCurrentIndex(0);
+    setStartMs(performance.now());
+    setFinishMs(null);
+    // if we re-enable splits in the future, reset them here
+  };
 
   // Listen for ESC to toggle overlay
   useEffect(() => {
@@ -122,6 +287,11 @@ export default function ThreeScene() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  if (!mounted) {
+    // render nothing until client mounted to prevent hydration mismatch
+    return null;
+  }
 
   return (
     <div
@@ -155,13 +325,71 @@ export default function ThreeScene() {
             <CameraController lookSpeed={1.5} moveSpeed={10} />
           )
         )}
-        <Scene onIndicatorUpdate={setIndicator} />
+        <Scene
+          rings={rings}
+          currentIndex={currentIndex}
+          setPassed={handlePassed}
+          onIndicators={setIndicators}
+        />
+        {/* Third-person ship following camera (slightly behind) */}
+        <PlayerShip
+          position={[0, -0.2, 0]}
+          rotationY={0}
+        />
       </Canvas>
 
-      {/* Arrow overlay */}
-      {indicator.off && !showIntro && (
-        <WaypointIndicator position={indicator.pos} rotation={indicator.rotation} />
-      )}
+      {/* Arrow overlays (multi) */}
+      {!showIntro && smoothedIndicators.map((ind) => (
+        <WaypointIndicator
+          key={ind.id}
+          position={ind.pos}
+          rotation={ind.rotation}
+          color={ind.color}
+          label={ind.label}
+        />
+      ))}
+
+      {/* HUD */}
+      <div style={{
+        position: "absolute",
+        top: 12,
+        left: 12,
+        padding: "8px 12px",
+        background: "rgba(0,0,0,0.45)",
+        color: "#fff",
+        borderRadius: 8,
+        fontSize: 14,
+        pointerEvents: "none",
+      }}>
+        <div><strong>Seed</strong>: {seed} · <strong>Rings</strong>: {currentIndex}/{rings.length}</div>
+        <div>
+          <strong>Time</strong>: {startMs ? ((finishMs ?? performance.now()) - startMs).toFixed(0) : 0} ms
+        </div>
+      </div>
+
+      {/* Leaderboard + Controls */}
+      <div style={{ position: "absolute", right: 12, top: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+        <button
+          style={{ padding: "8px 12px", background: "#22d3ee", border: "none", borderRadius: 6, cursor: "pointer" }}
+          onClick={() => {
+            if (typeof window !== "undefined") {
+              navigator.clipboard.writeText(window.location.href);
+            }
+          }}
+        >Share URL</button>
+        <button
+          style={{ padding: "8px 12px", background: "#f59e0b", border: "none", borderRadius: 6, cursor: "pointer" }}
+          onClick={resetRun}
+        >Reset Run</button>
+        {leaderboard.length > 0 && (
+          <div style={{ background: "rgba(0,0,0,0.45)", color: "#fff", borderRadius: 8, padding: 8 }}>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>Top Times</div>
+            {leaderboard.slice(0, 5).map((t, i) => (
+              <div key={i}>#{i + 1}: {(t / 1000).toFixed(3)}s</div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Intro overlay */}
       {showIntro && <IntroOverlay onStart={() => setShowIntro(false)} isMobile={isMobile} />}
