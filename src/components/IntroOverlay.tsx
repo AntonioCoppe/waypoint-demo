@@ -3,8 +3,9 @@
 import React from "react";
 
 interface IntroOverlayProps {
-  onStart: () => void;
+  onStart: (username: string) => void;
   isMobile: boolean;
+  defaultUsername?: string;
 }
 
 const overlayStyle: React.CSSProperties = {
@@ -47,7 +48,8 @@ const buttonStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
-export default function IntroOverlay({ onStart, isMobile }: IntroOverlayProps) {
+export default function IntroOverlay({ onStart, isMobile, defaultUsername = "" }: IntroOverlayProps) {
+  const [name, setName] = React.useState<string>(defaultUsername);
   return (
     <div style={overlayStyle}>
       <h1 style={titleStyle}>Controls</h1>
@@ -72,7 +74,16 @@ export default function IntroOverlay({ onStart, isMobile }: IntroOverlayProps) {
           </>
         )}
       </ul>
-      <button style={buttonStyle} onClick={onStart}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+        <span style={{ fontWeight: 700 }}>Name</span>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Your name"
+          style={{ padding: '10px 12px', borderRadius: 8, border: 'none', minWidth: 200 }}
+        />
+      </div>
+      <button style={{...buttonStyle, opacity: name.trim() ? 1 : 0.5, cursor: name.trim() ? 'pointer' : 'not-allowed'}} disabled={!name.trim()} onClick={() => onStart(name.trim())}>
         Start
       </button>
     </div>

@@ -10,3 +10,13 @@ html, body, #__next {
   overflow: hidden;
 }
 
+/* Prevent scrollbars on the root container and the main app */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  overscroll-behavior: none;
+  touch-action: none;
+}
+

@@ -7,17 +7,25 @@ import { Vector3 } from "three";
 interface CameraControllerProps {
   lookSpeed?: number;
   moveSpeed?: number;
+  resetToken?: number;
+  startPosition?: [number, number, number];
+  startRotation?: { x?: number; y?: number };
 }
 
 export default function CameraController({
   lookSpeed = 1.5,
   moveSpeed = 10,
+  resetToken,
+  startPosition = [0, 1, 5],
+  startRotation,
 }: CameraControllerProps) {
-  const { camera, size } = useThree();
+  const { camera, size, gl } = useThree();
   const pointer = useRef({ x: size.width / 2, y: size.height / 2 });
   const keys = useRef({ w: false, a: false, s: false, d: false, shift: false, space: false, ctrl: false, q: false, e: false });
   const velocityRef = useRef(new Vector3(0, 0, 0));
   const targetRotRef = useRef({ x: camera.rotation.x, y: camera.rotation.y });
+  const lastLogRef = useRef(0);
+  const debug = true;
 
   // Track mouse
   useEffect(() => {
@@ -37,27 +45,76 @@ export default function CameraController({
     };
   }, [size.width, size.height]);
 
+  // Reset handler
+  useEffect(() => {
+    if (resetToken === undefined) return;
+    // reset camera transform
+    camera.position.set(startPosition[0], startPosition[1], startPosition[2]);
+    const rx = startRotation?.x ?? 0;
+    const ry = startRotation?.y ?? 0;
+    camera.rotation.set(rx, ry, 0);
+    targetRotRef.current.x = rx;
+    targetRotRef.current.y = ry;
+    // zero velocity
+    velocityRef.current.set(0, 0, 0);
+    // recenter pointer target
+    pointer.current.x = size.width / 2;
+    pointer.current.y = size.height / 2;
+  }, [resetToken, camera, size.width, size.height, startPosition, startRotation?.x, startRotation?.y]);
+
   // Track keys
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      const k = e.key.toLowerCase();
-      if (k in keys.current) keys.current[k as keyof typeof keys.current] = true;
-      if (e.code === "Space") keys.current.space = true;
-      if (e.ctrlKey || e.key === "Control" || e.code === "ControlLeft" || e.code === "ControlRight") keys.current.ctrl = true;
+      const code = e.code;
+      switch (code) {
+        case "KeyW": keys.current.w = true; break;
+        case "KeyA": keys.current.a = true; break;
+        case "KeyS": keys.current.s = true; break;
+        case "KeyD": keys.current.d = true; break;
+        case "ShiftLeft": case "ShiftRight": keys.current.shift = true; break;
+        case "Space": keys.current.space = true; break;
+        case "ControlLeft": case "ControlRight": keys.current.ctrl = true; break;
+        default: {
+          const k = e.key.toLowerCase();
+          if (k === "w") keys.current.w = true;
+          else if (k === "a") keys.current.a = true;
+          else if (k === "s") keys.current.s = true;
+          else if (k === "d") keys.current.d = true;
+          else if (k === "shift") keys.current.shift = true;
+        }
+      }
+      if (code === "Space" || code.startsWith("Arrow")) e.preventDefault();
+      if (debug) console.log("[keys] down", e.code, e.key, { ...keys.current });
     };
     const up = (e: KeyboardEvent) => {
-      const k = e.key.toLowerCase();
-      if (k in keys.current) keys.current[k as keyof typeof keys.current] = false;
-      if (e.code === "Space") keys.current.space = false;
-      if (!e.ctrlKey && (e.key === "Control" || e.code === "ControlLeft" || e.code === "ControlRight")) keys.current.ctrl = false;
+      const code = e.code;
+      switch (code) {
+        case "KeyW": keys.current.w = false; break;
+        case "KeyA": keys.current.a = false; break;
+        case "KeyS": keys.current.s = false; break;
+        case "KeyD": keys.current.d = false; break;
+        case "ShiftLeft": case "ShiftRight": keys.current.shift = false; break;
+        case "Space": keys.current.space = false; break;
+        case "ControlLeft": case "ControlRight": keys.current.ctrl = false; break;
+        default: {
+          const k = e.key.toLowerCase();
+          if (k === "w") keys.current.w = false;
+          else if (k === "a") keys.current.a = false;
+          else if (k === "s") keys.current.s = false;
+          else if (k === "d") keys.current.d = false;
+          else if (k === "shift") keys.current.shift = false;
+        }
+      }
+      if (debug) console.log("[keys] up", e.code, e.key, { ...keys.current });
     };
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
+    const targetEl: HTMLElement | Window = (gl?.domElement as HTMLElement) ?? window;
+    targetEl.addEventListener("keydown", down as EventListener, { passive: false } as AddEventListenerOptions);
+    targetEl.addEventListener("keyup", up as EventListener, { passive: true } as AddEventListenerOptions);
     return () => {
-      window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
+      targetEl.removeEventListener("keydown", down as EventListener);
+      targetEl.removeEventListener("keyup", up as EventListener);
     };
-  }, []);
+  }, [debug, gl]);
 
   useFrame((_, delta) => {
     const cx = size.width / 2;
@@ -70,41 +127,28 @@ export default function CameraController({
     const targetX = targetRotRef.current.x - dy * lookSpeed * delta;
     targetRotRef.current.y = targetY;
     targetRotRef.current.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, targetX));
-    camera.rotation.y += (targetRotRef.current.y - camera.rotation.y) * 0.2;
-    camera.rotation.x += (targetRotRef.current.x - camera.rotation.x) * 0.2;
+    const lookLerp = 0.35; // more responsive
+    camera.rotation.y += (targetRotRef.current.y - camera.rotation.y) * lookLerp;
+    camera.rotation.x += (targetRotRef.current.x - camera.rotation.x) * lookLerp;
 
-    // Movement with acceleration/drag and boost
-    const forward = new Vector3();
-    camera.getWorldDirection(forward);
-    // allow vertical flight (keep full forward including y)
-    forward.normalize();
-    const right = new Vector3().crossVectors(forward, new Vector3(0, 1, 0)).normalize();
-
-    const input = new Vector3();
-    if (keys.current.w) input.add(forward);
-    if (keys.current.s) input.sub(forward);
-    if (keys.current.a) input.sub(right);
-    if (keys.current.d) input.add(right);
-
-    // vertical controls
-    if (keys.current.space) input.y += 1;
-    if (keys.current.ctrl) input.y -= 1;
-    if (input.lengthSq() > 0) input.normalize();
+    // Direct, robust translation in camera-local space
     const boost = keys.current.shift ? 2.0 : 1.0;
-    const accel = moveSpeed * 2.5 * boost;
-    const drag = 4.0; // per second
+    const step = moveSpeed * boost * delta;
+    if (keys.current.w) { camera.translateZ(-step); }
+    if (keys.current.s) { camera.translateZ(step); }
+    if (keys.current.a) { camera.translateX(-step); }
+    if (keys.current.d) { camera.translateX(step); }
+    if (keys.current.space) { camera.position.y += step; }
+    if (keys.current.ctrl) { camera.position.y -= step; }
 
-    // integrate velocity
-    const v = velocityRef.current;
-    v.addScaledVector(input, accel * delta);
-    // apply drag
-    const dragFactor = Math.max(0, 1 - drag * delta);
-    v.multiplyScalar(dragFactor);
-
-    // clamp very small velocities
-    if (v.lengthSq() < 1e-6) v.set(0, 0, 0);
-
-    camera.position.addScaledVector(v, delta);
+    // periodic debug log
+    if (debug) {
+      const t = performance.now();
+      if (t - lastLogRef.current > 500) {
+        lastLogRef.current = t;
+        console.log("[move] pos=", camera.position.toArray().map((n: number) => n.toFixed(2)).join(","), "keys=", { ...keys.current });
+      }
+    }
   });
 
   return null;

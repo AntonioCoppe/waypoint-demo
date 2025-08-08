@@ -10,7 +10,6 @@ import CameraController from "./CameraController";
 import IntroOverlay from "./IntroOverlay";
 import WaypointIndicator from "./WaypointIndicator";
 import Ring from "./Ring";
-import PlayerShip from "./PlayerShip";
 import {
   worldToScreenPosition,
   isPositionOffScreen,
@@ -190,6 +189,20 @@ export default function ThreeScene() {
 
   const [showIntro, setShowIntro] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [resetToken, setResetToken] = useState(0);
+
+  // Username for persistent records
+  const [username, setUsername] = useState<string>("");
+  useEffect(() => {
+    try {
+      const u = localStorage.getItem("username") || "";
+      setUsername(u);
+    } catch {}
+  }, []);
+  const saveUsername = (u: string) => {
+    setUsername(u);
+    try { localStorage.setItem("username", u); } catch {}
+  };
 
   // Detect mobile on mount
   useEffect(() => {
@@ -247,26 +260,40 @@ export default function ThreeScene() {
       if (startMs !== null) {
         const total = now - startMs;
         try {
-          const key = `leaderboard:${seed}:${ringCount}`;
-          const raw = localStorage.getItem(key);
-          const list: number[] = raw ? JSON.parse(raw) : [];
-          list.push(total);
-          list.sort((a, b) => a - b);
-          localStorage.setItem(key, JSON.stringify(list.slice(0, 10)));
+          const user = username || "Anon";
+          // per-seed leaderboard (store objects)
+          const keySeed = `leaderboard:${seed}:${ringCount}`;
+          const rawSeed = localStorage.getItem(keySeed);
+          const listSeed: { user: string; time: number }[] = rawSeed ? JSON.parse(rawSeed) : [];
+          listSeed.push({ user, time: total });
+          listSeed.sort((a, b) => a.time - b.time);
+          localStorage.setItem(keySeed, JSON.stringify(listSeed.slice(0, 10)));
+
+          // global leaderboard across seeds
+          const keyGlobal = `leaderboard:global`;
+          const rawGlobal = localStorage.getItem(keyGlobal);
+          const listGlobal: { user: string; time: number; seed: number; rings: number }[] = rawGlobal ? JSON.parse(rawGlobal) : [];
+          listGlobal.push({ user, time: total, seed, rings: rings.length });
+          listGlobal.sort((a, b) => a.time - b.time);
+          localStorage.setItem(keyGlobal, JSON.stringify(listGlobal.slice(0, 20)));
         } catch {}
       }
     }
   };
 
-  const leaderboard = useMemo(() => {
+  const leaderboard = useMemo<[Array<{user: string; time: number}>, Array<{user: string; time: number; seed: number; rings: number}>]>(() => {
     void finishMs; // ensure dependency is considered used for recomputation after finish
-    if (typeof window === "undefined") return [] as number[];
+    if (typeof window === "undefined") return [[], []];
     try {
-      const key = `leaderboard:${seed}:${ringCount}`;
-      const raw = localStorage.getItem(key);
-      return raw ? (JSON.parse(raw) as number[]) : [];
+      const keySeed = `leaderboard:${seed}:${ringCount}`;
+      const rawSeed = localStorage.getItem(keySeed);
+      const perSeed = rawSeed ? JSON.parse(rawSeed) : [];
+      const keyGlobal = `leaderboard:global`;
+      const rawGlobal = localStorage.getItem(keyGlobal);
+      const global = rawGlobal ? JSON.parse(rawGlobal) : [];
+      return [perSeed, global];
     } catch {
-      return [] as number[];
+      return [[], []];
     }
   }, [seed, ringCount, finishMs]);
 
@@ -274,7 +301,8 @@ export default function ThreeScene() {
     setCurrentIndex(0);
     setStartMs(performance.now());
     setFinishMs(null);
-    // if we re-enable splits in the future, reset them here
+    // Reset camera/controller to initial transform
+    setResetToken((t) => t + 1);
   };
 
   // Listen for ESC to toggle overlay
@@ -310,7 +338,6 @@ export default function ThreeScene() {
           width: "100%",
           height: "100%",
         }}
-        camera={{ position: [0, 1, 5], fov: 75, near: 0.1, far: 500 }}
       >
         {/* Only enable controls when overlay is hidden */}
         {!showIntro && (
@@ -322,7 +349,7 @@ export default function ThreeScene() {
               rotateSpeed={0.4}
             />
           ) : (
-            <CameraController lookSpeed={1.5} moveSpeed={10} />
+            <CameraController lookSpeed={1.5} moveSpeed={10} resetToken={resetToken} startPosition={[0,1,5]} startRotation={{ x: 0, y: 0 }} />
           )
         )}
         <Scene
@@ -330,11 +357,6 @@ export default function ThreeScene() {
           currentIndex={currentIndex}
           setPassed={handlePassed}
           onIndicators={setIndicators}
-        />
-        {/* Third-person ship following camera (slightly behind) */}
-        <PlayerShip
-          position={[0, -0.2, 0]}
-          rotationY={0}
         />
       </Canvas>
 
@@ -367,7 +389,7 @@ export default function ThreeScene() {
         </div>
       </div>
 
-      {/* Leaderboard + Controls */}
+      {/* Leaderboards / Controls */}
       <div style={{ position: "absolute", right: 12, top: 12, display: "flex", flexDirection: "column", gap: 8 }}>
         <button
           style={{ padding: "8px 12px", background: "#22d3ee", border: "none", borderRadius: 6, cursor: "pointer" }}
@@ -381,18 +403,31 @@ export default function ThreeScene() {
           style={{ padding: "8px 12px", background: "#f59e0b", border: "none", borderRadius: 6, cursor: "pointer" }}
           onClick={resetRun}
         >Reset Run</button>
-        {leaderboard.length > 0 && (
-          <div style={{ background: "rgba(0,0,0,0.45)", color: "#fff", borderRadius: 8, padding: 8 }}>
-            <div style={{ fontWeight: 700, marginBottom: 4 }}>Top Times</div>
-            {leaderboard.slice(0, 5).map((t, i) => (
-              <div key={i}>#{i + 1}: {(t / 1000).toFixed(3)}s</div>
-            ))}
-          </div>
-        )}
+        <div style={{ background: "rgba(0,0,0,0.45)", color: "#fff", borderRadius: 8, padding: 8 }}>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>Top Times (This Seed)</div>
+          {(leaderboard[0] as {user: string; time: number}[]).slice(0,5).map((r, i) => (
+            <div key={i}>#{i + 1} {r.user}: {(r.time/1000).toFixed(3)}s</div>
+          ))}
+        </div>
+        <div style={{ background: "rgba(0,0,0,0.45)", color: "#fff", borderRadius: 8, padding: 8 }}>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>Global Top Times</div>
+          {(leaderboard[1] as {user: string; time: number; seed: number; rings: number}[]).slice(0,5).map((r, i) => (
+            <div key={i}>#{i + 1} {r.user}: {(r.time/1000).toFixed(3)}s · seed {r.seed} · n {r.rings}</div>
+          ))}
+        </div>
       </div>
 
       {/* Intro overlay */}
-      {showIntro && <IntroOverlay onStart={() => setShowIntro(false)} isMobile={isMobile} />}
+      {showIntro && (
+        <IntroOverlay
+          onStart={(name) => {
+            saveUsername(name);
+            setShowIntro(false);
+          }}
+          isMobile={isMobile}
+          defaultUsername={username}
+        />
+      )}
     </div>
   );
 }
